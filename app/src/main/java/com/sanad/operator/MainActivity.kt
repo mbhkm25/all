@@ -1,5 +1,7 @@
 package com.sanad.operator
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -14,7 +16,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import com.sanad.operator.inspection.InspectionLog
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -84,9 +88,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         val shareLog = Button(this).apply {
-            text = "مشاركة سجل الفحص"
+            text = "مشاركة سجل الفحص كملف"
             setOnClickListener {
-                shareInspectionLog()
+                shareInspectionLogFile()
+            }
+        }
+
+        val copyLog = Button(this).apply {
+            text = "نسخ سجل الفحص"
+            setOnClickListener {
+                copyInspectionLog()
             }
         }
 
@@ -99,7 +110,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val instructions = TextView(this).apply {
-            text = "طريقة الاختبار:\n1) فعّل SANAD Operator من إعدادات إمكانية الوصول.\n2) اخرج من التطبيق وافتح البسيري يدويًا.\n3) تنقل بين الرئيسية والخدمات المالية وتسجيل الدخول وتحويل لحساب بدون تنفيذ عملية فعلية.\n4) ارجع إلى SANAD Operator واضغط «مشاركة سجل الفحص» وأرسل السجل للمراجعة."
+            text = "طريقة الاختبار:\n1) فعّل SANAD Operator من إعدادات إمكانية الوصول.\n2) اخرج من التطبيق وافتح البسيري يدويًا.\n3) تنقل بين الرئيسية والخدمات المالية وتسجيل الدخول وتحويل لحساب بدون تنفيذ عملية فعلية.\n4) ارجع إلى SANAD Operator واضغط «مشاركة سجل الفحص كملف» وأرسل ملف TXT للمراجعة."
             textSize = 15f
             gravity = Gravity.END
             setPadding(0, dp(16), 0, dp(12))
@@ -121,6 +132,9 @@ class MainActivity : AppCompatActivity() {
         root.addView(shareLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
         })
+        root.addView(copyLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(8)
+        })
         root.addView(clearLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
         })
@@ -131,25 +145,46 @@ class MainActivity : AppCompatActivity() {
         return scroll
     }
 
-    private fun shareInspectionLog() {
-        val lines = InspectionLog.snapshot()
-        if (lines.isEmpty()) {
+    private fun buildInspectionPayload(): String = buildString {
+        appendLine("SANAD Operator PoC 0.1 — Accessibility Inspection Log")
+        appendLine("========================================================")
+        InspectionLog.snapshot().forEach(::appendLine)
+    }
+
+    private fun shareInspectionLogFile() {
+        if (InspectionLog.snapshot().isEmpty()) {
             Toast.makeText(this, "لا يوجد سجل لمشاركته بعد", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val payload = buildString {
-            appendLine("SANAD Operator PoC 0.1 — Accessibility Inspection Log")
-            appendLine("========================================================")
-            lines.forEach(::appendLine)
+        try {
+            val dir = File(cacheDir, "inspection_logs").apply { mkdirs() }
+            val file = File(dir, "sanad-accessibility-log-${System.currentTimeMillis()}.txt")
+            file.writeText(buildInspectionPayload(), Charsets.UTF_8)
+
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "SANAD Operator inspection log")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newRawUri("SANAD inspection log", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "مشاركة سجل الفحص"))
+        } catch (error: Exception) {
+            Toast.makeText(this, "تعذر فتح المشاركة: ${error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun copyInspectionLog() {
+        if (InspectionLog.snapshot().isEmpty()) {
+            Toast.makeText(this, "لا يوجد سجل لنسخه بعد", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "SANAD Operator inspection log")
-            putExtra(Intent.EXTRA_TEXT, payload)
-        }
-        startActivity(Intent.createChooser(intent, "مشاركة سجل الفحص"))
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("SANAD inspection log", buildInspectionPayload()))
+        Toast.makeText(this, "تم نسخ سجل الفحص", Toast.LENGTH_SHORT).show()
     }
 
     private fun refreshUi() {
