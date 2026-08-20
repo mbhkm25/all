@@ -7,7 +7,8 @@ enum class BusairiState {
     LOGIN,
     HOME,
     TRANSFER_FORM,
-    CONFIRMATION
+    CONFIRMATION,
+    AUTHENTICATION_REQUIRED
 }
 
 object BusairiStateDetector {
@@ -20,6 +21,13 @@ object BusairiStateDetector {
             return BusairiState.TRANSFER_FORM
         }
 
+        if (findText(root, "تأكيد كلمة المرور") != null ||
+            (findById(root, "${BusairiContract.PACKAGE}:id/imgFinger") != null &&
+                findById(root, "${BusairiContract.PACKAGE}:id/btnOk") != null)
+        ) {
+            return BusairiState.AUTHENTICATION_REQUIRED
+        }
+
         if (findText(root, BusairiContract.Text.CONFIRM_OPERATION) != null) {
             return BusairiState.CONFIRMATION
         }
@@ -29,7 +37,9 @@ object BusairiStateDetector {
         }
 
         val allText = collectText(root)
-        if (allText.any { it.contains("اسم المستخدم") || it.contains("كلمة المرور") }) {
+        if (allText.any { it.contains("اسم المستخدم") } &&
+            allText.any { it.contains("كلمة المرور") }
+        ) {
             return BusairiState.LOGIN
         }
 
@@ -52,7 +62,13 @@ object BusairiStateDetector {
             node.text?.toString()?.takeIf { it.isNotBlank() }?.let(out::add)
             node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let(out::add)
             for (index in 0 until node.childCount) {
-                node.getChild(index)?.let { walk(it, depth + 1) }
+                node.getChild(index)?.let { child ->
+                    try {
+                        walk(child, depth + 1)
+                    } finally {
+                        child.recycle()
+                    }
+                }
             }
         }
         walk(root, 0)
