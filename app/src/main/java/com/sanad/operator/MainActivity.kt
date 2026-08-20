@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.sanad.operator.inspection.InspectionLog
 
@@ -82,6 +83,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val shareLog = Button(this).apply {
+            text = "مشاركة سجل الفحص"
+            setOnClickListener {
+                shareInspectionLog()
+            }
+        }
+
         val clearLog = Button(this).apply {
             text = "مسح سجل الفحص"
             setOnClickListener {
@@ -91,7 +99,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val instructions = TextView(this).apply {
-            text = "طريقة الاختبار:\n1) فعّل SANAD Operator من إعدادات إمكانية الوصول.\n2) اخرج من التطبيق وافتح البسيري يدويًا.\n3) تنقل بين الرئيسية والخدمات المالية وتسجيل الدخول وتحويل لحساب بدون تنفيذ عملية فعلية.\n4) ارجع إلى SANAD Operator واقرأ السجل أدناه."
+            text = "طريقة الاختبار:\n1) فعّل SANAD Operator من إعدادات إمكانية الوصول.\n2) اخرج من التطبيق وافتح البسيري يدويًا.\n3) تنقل بين الرئيسية والخدمات المالية وتسجيل الدخول وتحويل لحساب بدون تنفيذ عملية فعلية.\n4) ارجع إلى SANAD Operator واضغط «مشاركة سجل الفحص» وأرسل السجل للمراجعة."
             textSize = 15f
             gravity = Gravity.END
             setPadding(0, dp(16), 0, dp(12))
@@ -106,14 +114,13 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }
 
-        listOf<ViewGroup.LayoutParams>(
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        )
-
         root.addView(title)
         root.addView(explanation)
         root.addView(statusView)
         root.addView(openSettings, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(shareLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(8)
+        })
         root.addView(clearLog, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
         })
@@ -122,6 +129,27 @@ class MainActivity : AppCompatActivity() {
 
         scroll.addView(root)
         return scroll
+    }
+
+    private fun shareInspectionLog() {
+        val lines = InspectionLog.snapshot()
+        if (lines.isEmpty()) {
+            Toast.makeText(this, "لا يوجد سجل لمشاركته بعد", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val payload = buildString {
+            appendLine("SANAD Operator PoC 0.1 — Accessibility Inspection Log")
+            appendLine("========================================================")
+            lines.forEach(::appendLine)
+        }
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "SANAD Operator inspection log")
+            putExtra(Intent.EXTRA_TEXT, payload)
+        }
+        startActivity(Intent.createChooser(intent, "مشاركة سجل الفحص"))
     }
 
     private fun refreshUi() {
@@ -145,6 +173,9 @@ class MainActivity : AppCompatActivity() {
             contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ).orEmpty()
-        return enabledServices.contains("$packageName/${com.sanad.operator.accessibility.SanadAccessibilityService::class.java.name}", ignoreCase = true)
+        return enabledServices.contains(
+            "$packageName/${com.sanad.operator.accessibility.SanadAccessibilityService::class.java.name}",
+            ignoreCase = true
+        )
     }
 }
