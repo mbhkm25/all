@@ -6,6 +6,8 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.sanad.operator.inspection.InspectionLog
 import com.sanad.operator.inspection.NodeInspector
+import com.sanad.operator.providers.busairi.BusairiContract
+import com.sanad.operator.providers.busairi.BusairiStateDetector
 
 class SanadAccessibilityService : AccessibilityService() {
 
@@ -47,6 +49,12 @@ class SanadAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow
         val rootPackage = root?.packageName?.toString().orEmpty()
         InspectionLog.add("SNAPSHOT package=$packageName rootPackage=$rootPackage")
+
+        if (packageName == BusairiContract.PACKAGE || rootPackage == BusairiContract.PACKAGE) {
+            val state = BusairiStateDetector.detect(root)
+            InspectionLog.add("BUSAIRI_STATE $state")
+        }
+
         NodeInspector.inspect(root).forEach { line ->
             InspectionLog.add("NODE $line")
             Log.d(TAG, "$packageName $line")
