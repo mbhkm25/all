@@ -6,6 +6,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 object NodeInspector {
     private const val MAX_DEPTH = 12
     private const val MAX_NODES = 250
+    private const val REDACTED = "<REDACTED>"
 
     fun inspect(root: AccessibilityNodeInfo?): List<String> {
         if (root == null) return listOf("root=null")
@@ -17,13 +18,16 @@ object NodeInspector {
             visited++
 
             val bounds = Rect().also(node::getBoundsInScreen)
-            val text = node.text?.toString()?.take(120).orEmpty()
-            val desc = node.contentDescription?.toString()?.take(120).orEmpty()
+            val isSensitiveInput = node.isPassword || node.isEditable
+            val rawText = node.text?.toString()?.take(120).orEmpty()
+            val rawDesc = node.contentDescription?.toString()?.take(120).orEmpty()
+            val text = if (isSensitiveInput && rawText.isNotBlank()) REDACTED else rawText
+            val desc = if (isSensitiveInput && rawDesc.isNotBlank()) REDACTED else rawDesc
             val viewId = node.viewIdResourceName.orEmpty()
             val className = node.className?.toString().orEmpty()
 
             val interesting = text.isNotBlank() || desc.isNotBlank() || viewId.isNotBlank() ||
-                node.isClickable || node.isEditable || node.isFocusable
+                node.isClickable || node.isEditable || node.isFocusable || node.isPassword
 
             if (interesting) {
                 output += buildString {
@@ -34,6 +38,7 @@ object NodeInspector {
                     if (desc.isNotBlank()) append(" desc=\"").append(desc).append('"')
                     append(" clickable=").append(node.isClickable)
                     append(" editable=").append(node.isEditable)
+                    append(" password=").append(node.isPassword)
                     append(" focusable=").append(node.isFocusable)
                     append(" bounds=").append(bounds.toShortString())
                 }
