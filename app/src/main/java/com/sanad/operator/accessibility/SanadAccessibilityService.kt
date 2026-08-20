@@ -24,7 +24,12 @@ class SanadAccessibilityService : AccessibilityService() {
         if (event == null) return
 
         val packageName = event.packageName?.toString().orEmpty()
-        if (packageName.isBlank() || packageName in IGNORED_PACKAGES) return
+        if (packageName.isBlank()) return
+
+        // PoC 0.1 is intentionally scoped to Al Busairi only. This prevents
+        // unrelated high-frequency apps (ChatGPT, Android chooser, keyboard, etc.)
+        // from flooding the bounded inspection log and evicting the evidence we need.
+        if (packageName != BusairiContract.PACKAGE) return
 
         val className = event.className?.toString().orEmpty()
         val eventName = AccessibilityEvent.eventTypeToString(event.eventType)
@@ -50,10 +55,8 @@ class SanadAccessibilityService : AccessibilityService() {
         val rootPackage = root?.packageName?.toString().orEmpty()
         InspectionLog.add("SNAPSHOT package=$packageName rootPackage=$rootPackage")
 
-        if (packageName == BusairiContract.PACKAGE || rootPackage == BusairiContract.PACKAGE) {
-            val state = BusairiStateDetector.detect(root)
-            InspectionLog.add("BUSAIRI_STATE $state")
-        }
+        val state = BusairiStateDetector.detect(root)
+        InspectionLog.add("BUSAIRI_STATE $state")
 
         NodeInspector.inspect(root).forEach { line ->
             InspectionLog.add("NODE $line")
@@ -73,12 +76,5 @@ class SanadAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "SanadInspector"
         private const val CONTENT_INSPECTION_THROTTLE_MS = 700L
-
-        private val IGNORED_PACKAGES = setOf(
-            "com.sanad.operator",
-            "com.sec.android.app.launcher",
-            "com.android.systemui",
-            "com.samsung.android.app.cocktailbarservice"
-        )
     }
 }
