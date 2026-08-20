@@ -24,11 +24,6 @@ class SanadAccessibilityService : AccessibilityService() {
         if (event == null) return
 
         val packageName = event.packageName?.toString().orEmpty()
-        if (packageName.isBlank()) return
-
-        // PoC 0.1 is intentionally scoped to Al Busairi only. This prevents
-        // unrelated high-frequency apps (ChatGPT, Android chooser, keyboard, etc.)
-        // from flooding the bounded inspection log and evicting the evidence we need.
         if (packageName != BusairiContract.PACKAGE) return
 
         val className = event.className?.toString().orEmpty()
@@ -48,11 +43,13 @@ class SanadAccessibilityService : AccessibilityService() {
 
         if (!shouldInspect) return
 
+        val root = rootInActiveWindow ?: return
+        val rootPackage = root.packageName?.toString().orEmpty()
+        if (rootPackage != BusairiContract.PACKAGE) return
+
         lastInspectedPackage = packageName
         lastInspectionAtMs = SystemClock.elapsedRealtime()
 
-        val root = rootInActiveWindow
-        val rootPackage = root?.packageName?.toString().orEmpty()
         InspectionLog.add("SNAPSHOT package=$packageName rootPackage=$rootPackage")
 
         val state = BusairiStateDetector.detect(root)
