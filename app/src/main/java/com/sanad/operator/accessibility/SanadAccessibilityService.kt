@@ -45,7 +45,8 @@ class SanadAccessibilityService : AccessibilityService() {
         lastInspectionAtMs = SystemClock.elapsedRealtime()
 
         val root = rootInActiveWindow
-        InspectionLog.add("SNAPSHOT package=$packageName rootPackage=${root?.packageName.orEmpty()}")
+        val rootPackage = root?.packageName?.toString().orEmpty()
+        InspectionLog.add("SNAPSHOT package=$packageName rootPackage=$rootPackage")
         NodeInspector.inspect(root).forEach { line ->
             InspectionLog.add("NODE $line")
             Log.d(TAG, "$packageName $line")
